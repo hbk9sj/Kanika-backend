@@ -4,11 +4,8 @@ A FastAPI-based REST API for managing invoices with Supabase as the database. Th
 
 ## Features
 
-- 🚀 **5 RESTful API Endpoints** for complete invoice management
-- 📊 **Supabase Integration** for reliable database operations
-- 🔒 **CORS Enabled** for cross-origin requests
-- 📝 **Auto-generated API Documentation** (Swagger UI)
-- 🌐 **Hostable Anywhere** (Heroku, Railway, Render, AWS, GCP, etc.)
+- **5 RESTful API Endpoints** for complete invoice management
+- **Supabase Integration** for reliable database operations
 
 ## API Endpoints
 
