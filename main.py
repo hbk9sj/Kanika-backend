@@ -38,15 +38,37 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Security scheme for JWT
-security = HTTPBearer()
+# Security scheme for JWT (auto_error=False makes it optional)
+security = HTTPBearer(auto_error=False)
 
 
-# Dependency to verify JWT token
+# Dependency to verify JWT token (optional - returns None if no token)
+async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Verify JWT token if provided, otherwise return None
+    """
+    if credentials is None:
+        return None
+    
+    try:
+        token = credentials.credentials
+        # Verify token with Supabase
+        user = supabase.auth.get_user(token)
+        if not user:
+            return None
+        return user
+    except Exception as e:
+        return None
+
+
+# Dependency to verify JWT token (required - raises error if no token)
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
-    Verify JWT token and return current user
+    Verify JWT token and return current user (Required)
     """
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
     try:
         token = credentials.credentials
         # Verify token with Supabase
@@ -181,11 +203,11 @@ async def get_me(current_user = Depends(get_current_user)):
 
 
 @app.get("/invoices", response_model=List[Invoice])
-async def get_all_invoices(current_user = Depends(get_current_user)):
+async def get_all_invoices(current_user = Depends(get_current_user_optional)):
     """
     Get all invoices from the database
     
-    Requires: Authorization header with Bearer token
+    Authentication is optional
     """
     try:
         response = supabase.table("invoices").select("*").execute()
@@ -197,12 +219,12 @@ async def get_all_invoices(current_user = Depends(get_current_user)):
 @app.get("/invoices/single", response_model=Invoice)
 async def get_invoice(
     invoice_id: int = Query(..., description="The ID of the invoice to retrieve"),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_optional)
 ):
     """
     Get a single invoice by ID using query parameters
     
-    Requires: Authorization header with Bearer token
+    Authentication is optional
     
     Args:
         invoice_id: The ID of the invoice (query parameter)
@@ -221,11 +243,11 @@ async def get_invoice(
 
 
 @app.post("/invoices", response_model=Invoice, status_code=201)
-async def create_invoice(invoice: InvoiceCreate, current_user = Depends(get_current_user)):
+async def create_invoice(invoice: InvoiceCreate, current_user = Depends(get_current_user_optional)):
     """
     Create a new invoice
     
-    Requires: Authorization header with Bearer token
+    Authentication is optional
     
     Args:
         invoice: Invoice data
@@ -243,11 +265,11 @@ async def create_invoice(invoice: InvoiceCreate, current_user = Depends(get_curr
 
 
 @app.put("/invoices/{invoice_id}", response_model=Invoice)
-async def update_invoice(invoice_id: int, invoice: InvoiceUpdate, current_user = Depends(get_current_user)):
+async def update_invoice(invoice_id: int, invoice: InvoiceUpdate, current_user = Depends(get_current_user_optional)):
     """
     Update an existing invoice
     
-    Requires: Authorization header with Bearer token
+    Authentication is optional
     
     Args:
         invoice_id: The ID of the invoice to update
@@ -280,11 +302,11 @@ async def update_invoice(invoice_id: int, invoice: InvoiceUpdate, current_user =
 
 
 @app.delete("/invoices/{invoice_id}")
-async def delete_invoice(invoice_id: int, current_user = Depends(get_current_user)):
+async def delete_invoice(invoice_id: int, current_user = Depends(get_current_user_optional)):
     """
     Delete an invoice
     
-    Requires: Authorization header with Bearer token
+    Authentication is optional
     
     Args:
         invoice_id: The ID of the invoice to delete
