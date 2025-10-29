@@ -154,5 +154,4 @@ The API includes comprehensive error handling:
 
 All errors return JSON with a `detail` field explaining the issue.
 
-MIT License - feel free to use this for your projects!
 
