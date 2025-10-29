@@ -1,10 +1,14 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import os
 from typing import List, Optional
-from schemas import Invoice, InvoiceCreate, InvoiceUpdate
+from schemas import (
+    Invoice, InvoiceCreate, InvoiceUpdate,
+    UserSignup, UserLogin, AuthResponse, UserResponse
+)
 
 # Load environment variables
 load_dotenv()
@@ -12,8 +16,8 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI(
     title="Invoice Management API",
-    description="A REST API for managing invoices using Supabase",
-    version="1.0.0"
+    description="A REST API for managing invoices with authentication using Supabase",
+    version="2.0.0"
 )
 
 # Add CORS middleware for hosting anywhere
@@ -34,27 +38,154 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Security scheme for JWT
+security = HTTPBearer()
+
+
+# Dependency to verify JWT token
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Verify JWT token and return current user
+    """
+    try:
+        token = credentials.credentials
+        # Verify token with Supabase
+        user = supabase.auth.get_user(token)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid authentication credentials: {str(e)}")
+
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {
-        "message": "Invoice Management API",
-        "version": "1.0.0",
-        "endpoints": {
+        "message": "Invoice Management API with Authentication",
+        "version": "2.0.0",
+        "auth_endpoints": {
+            "signup": "/auth/signup",
+            "login": "/auth/login",
+            "me": "/auth/me"
+        },
+        "invoice_endpoints": {
             "get_all_invoices": "/invoices",
             "get_invoice": "/invoices/single",
             "create_invoice": "/invoices",
             "update_invoice": "/invoices/{invoice_id}",
             "delete_invoice": "/invoices/{invoice_id}"
-        }
+        },
+        "note": "All invoice endpoints require authentication. Include 'Authorization: Bearer <token>' header"
     }
 
 
+# ============= AUTHENTICATION ENDPOINTS =============
+
+@app.post("/auth/signup", response_model=AuthResponse, status_code=201)
+async def signup(user_data: UserSignup):
+    """
+    Register a new user with email and password
+    
+    Args:
+        user_data: User signup information (email, password, optional full_name)
+    
+    Returns:
+        Authentication response with access token and user info
+    """
+    try:
+        # Sign up user with Supabase Auth
+        response = supabase.auth.sign_up({
+            "email": user_data.email,
+            "password": user_data.password,
+            "options": {
+                "data": {
+                    "full_name": user_data.full_name
+                }
+            }
+        })
+        
+        if not response.user:
+            raise HTTPException(status_code=400, detail="Failed to create user")
+        
+        return {
+            "access_token": response.session.access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": response.user.id,
+                "email": response.user.email,
+                "full_name": user_data.full_name
+            },
+            "expires_in": response.session.expires_in
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Signup failed: {str(e)}")
+
+
+@app.post("/auth/login", response_model=AuthResponse)
+async def login(user_credentials: UserLogin):
+    """
+    Login with email and password
+    
+    Args:
+        user_credentials: User login credentials (email, password)
+    
+    Returns:
+        Authentication response with access token and user info
+    """
+    try:
+        # Sign in user with Supabase Auth
+        response = supabase.auth.sign_in_with_password({
+            "email": user_credentials.email,
+            "password": user_credentials.password
+        })
+        
+        if not response.user or not response.session:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        return {
+            "access_token": response.session.access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": response.user.id,
+                "email": response.user.email,
+                "user_metadata": response.user.user_metadata
+            },
+            "expires_in": response.session.expires_in
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Login failed: {str(e)}")
+
+
+@app.get("/auth/me", response_model=UserResponse)
+async def get_me(current_user = Depends(get_current_user)):
+    """
+    Get current authenticated user information
+    
+    Requires: Authorization header with Bearer token
+    
+    Returns:
+        Current user information
+    """
+    try:
+        return {
+            "id": current_user.user.id,
+            "email": current_user.user.email,
+            "created_at": str(current_user.user.created_at)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user info: {str(e)}")
+
+
+# ============= INVOICE ENDPOINTS (PROTECTED) =============
+
+
 @app.get("/invoices", response_model=List[Invoice])
-async def get_all_invoices():
+async def get_all_invoices(current_user = Depends(get_current_user)):
     """
     Get all invoices from the database
+    
+    Requires: Authorization header with Bearer token
     """
     try:
         response = supabase.table("invoices").select("*").execute()
@@ -64,9 +195,14 @@ async def get_all_invoices():
 
 
 @app.get("/invoices/single", response_model=Invoice)
-async def get_invoice(invoice_id: int = Query(..., description="The ID of the invoice to retrieve")):
+async def get_invoice(
+    invoice_id: int = Query(..., description="The ID of the invoice to retrieve"),
+    current_user = Depends(get_current_user)
+):
     """
     Get a single invoice by ID using query parameters
+    
+    Requires: Authorization header with Bearer token
     
     Args:
         invoice_id: The ID of the invoice (query parameter)
@@ -85,9 +221,11 @@ async def get_invoice(invoice_id: int = Query(..., description="The ID of the in
 
 
 @app.post("/invoices", response_model=Invoice, status_code=201)
-async def create_invoice(invoice: InvoiceCreate):
+async def create_invoice(invoice: InvoiceCreate, current_user = Depends(get_current_user)):
     """
     Create a new invoice
+    
+    Requires: Authorization header with Bearer token
     
     Args:
         invoice: Invoice data
@@ -105,9 +243,11 @@ async def create_invoice(invoice: InvoiceCreate):
 
 
 @app.put("/invoices/{invoice_id}", response_model=Invoice)
-async def update_invoice(invoice_id: int, invoice: InvoiceUpdate):
+async def update_invoice(invoice_id: int, invoice: InvoiceUpdate, current_user = Depends(get_current_user)):
     """
     Update an existing invoice
+    
+    Requires: Authorization header with Bearer token
     
     Args:
         invoice_id: The ID of the invoice to update
@@ -140,9 +280,11 @@ async def update_invoice(invoice_id: int, invoice: InvoiceUpdate):
 
 
 @app.delete("/invoices/{invoice_id}")
-async def delete_invoice(invoice_id: int):
+async def delete_invoice(invoice_id: int, current_user = Depends(get_current_user)):
     """
     Delete an invoice
+    
+    Requires: Authorization header with Bearer token
     
     Args:
         invoice_id: The ID of the invoice to delete
