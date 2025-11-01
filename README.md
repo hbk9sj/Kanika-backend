@@ -110,11 +110,17 @@ curl -X POST "https://kanika-backend-g4yx.onrender.com/invoices" \
     "amount": 1500.50,
     "status": "pending",
     "description": "Web development services",
-    "payment_method": "Credit Card"
+    "payment_method": "Credit Card",
+    "issue_date": "2025-11-01",
+    "due_date": "2025-12-01"
   }'
 ```
 
-**Note**: The `payment_method` field is optional. If not provided, it defaults to `null`.
+**Note**: 
+- The `payment_method` field is optional. If not provided, it defaults to `null`.
+- The `issue_date` field is optional. If not provided, it defaults to **today's date**.
+- The `due_date` field is optional. If not provided, it defaults to **15 days from the issue_date**.
+- Both date fields format: **YYYY-MM-DD**
 
 #### 6. Update Invoice
 ```bash
@@ -124,11 +130,13 @@ curl -X PUT "https://kanika-backend-g4yx.onrender.com/invoices/1" \
   -d '{
     "status": "paid",
     "amount": 1600.00,
-    "payment_method": "Bank Transfer"
+    "payment_method": "Bank Transfer",
+    "issue_date": "2025-11-05",
+    "due_date": "2025-12-15"
   }'
 ```
 
-**Note**: All fields are optional in updates. You can update just the `payment_method` or any combination of fields.
+**Note**: All fields are optional in updates. You can update `payment_method`, `issue_date`, `due_date`, or any combination of fields.
 
 #### 7. Delete Invoice
 ```bash
@@ -194,6 +202,8 @@ curl -X GET "https://kanika-backend-g4yx.onrender.com/invoices/stats" \
     "status": "pending",                  # Required (e.g., "paid", "pending", "cancelled")
     "description": "Services rendered",   # Optional
     "payment_method": "Credit Card",      # Optional (defaults to null if not provided)
+    "issue_date": "2025-11-01",           # Optional (defaults to today's date), Format: YYYY-MM-DD
+    "due_date": "2025-12-01",             # Optional (defaults to 15 days from issue_date), Format: YYYY-MM-DD
     "created_at": "2025-10-24T10:00:00Z", # Auto-generated
     "updated_at": "2025-10-24T10:00:00Z"  # Auto-updated
 }
@@ -218,4 +228,5 @@ The API includes comprehensive error handling:
 - **500**: Server error
 
 All errors return JSON with a `detail` field explaining the issue.
+
 
