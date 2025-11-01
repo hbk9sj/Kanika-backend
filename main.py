@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 from typing import List, Optional
 from schemas import (
-    Invoice, InvoiceCreate, InvoiceUpdate,
+    Invoice, InvoiceCreate, InvoiceUpdate, LineItem, InvoiceStats,
     UserSignup, UserLogin, AuthResponse, UserResponse
 )
 
@@ -94,6 +94,7 @@ async def root():
         "invoice_endpoints": {
             "get_all_invoices": "/invoices",
             "get_invoice": "/invoices/single",
+            "get_stats": "/invoices/stats",
             "create_invoice": "/invoices",
             "update_invoice": "/invoices/{invoice_id}",
             "delete_invoice": "/invoices/{invoice_id}"
@@ -329,6 +330,67 @@ async def delete_invoice(invoice_id: int, current_user = Depends(get_current_use
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting invoice: {str(e)}")
+
+
+@app.get("/invoices/stats", response_model=InvoiceStats)
+async def get_invoice_stats(current_user = Depends(get_current_user_optional)):
+    """
+    Get comprehensive statistics about invoices
+    
+    Authentication is optional
+    
+    Returns:
+        Statistics including:
+        - Total invoices count and amount
+        - Average invoice amount
+        - Breakdown by status (count and amount)
+        - Payment method distribution
+    """
+    try:
+        # Get all invoices
+        response = supabase.table("invoices").select("*").execute()
+        invoices = response.data
+        
+        if not invoices:
+            return {
+                "total_invoices": 0,
+                "total_amount": 0.0,
+                "average_amount": 0.0,
+                "by_status": {},
+                "payment_methods": {}
+            }
+        
+        # Calculate total stats
+        total_invoices = len(invoices)
+        total_amount = sum(inv.get("amount", 0) for inv in invoices)
+        average_amount = total_amount / total_invoices if total_invoices > 0 else 0.0
+        
+        # Calculate stats by status
+        by_status = {}
+        for invoice in invoices:
+            status = invoice.get("status", "unknown")
+            if status not in by_status:
+                by_status[status] = {"count": 0, "amount": 0.0}
+            by_status[status]["count"] += 1
+            by_status[status]["amount"] += invoice.get("amount", 0)
+        
+        # Calculate payment method distribution
+        payment_methods = {}
+        for invoice in invoices:
+            payment_method = invoice.get("payment_method")
+            # Handle null/None payment methods
+            method_key = payment_method if payment_method else "not_set"
+            payment_methods[method_key] = payment_methods.get(method_key, 0) + 1
+        
+        return {
+            "total_invoices": total_invoices,
+            "total_amount": round(total_amount, 2),
+            "average_amount": round(average_amount, 2),
+            "by_status": by_status,
+            "payment_methods": payment_methods
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching invoice stats: {str(e)}")
 
 
 if __name__ == "__main__":
