@@ -58,6 +58,7 @@ class InvoiceBase(BaseModel):
     amount: float
     status: str  # e.g., "paid", "pending", "cancelled"
     description: Optional[str] = None
+    payment_method: Optional[str] = None
 
 
 class InvoiceCreate(InvoiceBase):
@@ -73,6 +74,7 @@ class InvoiceUpdate(BaseModel):
     amount: Optional[float] = None
     status: Optional[str] = None
     description: Optional[str] = None
+    payment_method: Optional[str] = None
 
 
 class Invoice(InvoiceBase):
