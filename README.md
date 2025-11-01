@@ -108,9 +108,12 @@ curl -X POST "https://kanika-backend-g4yx.onrender.com/invoices" \
     "invoice_number": "INV-001",
     "amount": 1500.50,
     "status": "pending",
-    "description": "Web development services"
+    "description": "Web development services",
+    "payment_method": "Credit Card"
   }'
 ```
+
+**Note**: The `payment_method` field is optional. If not provided, it defaults to `null`.
 
 #### 6. Update Invoice
 ```bash
@@ -119,9 +122,12 @@ curl -X PUT "https://kanika-backend-g4yx.onrender.com/invoices/1" \
   -H "Content-Type: application/json" \
   -d '{
     "status": "paid",
-    "amount": 1600.00
+    "amount": 1600.00,
+    "payment_method": "Bank Transfer"
   }'
 ```
+
+**Note**: All fields are optional in updates. You can update just the `payment_method` or any combination of fields.
 
 #### 7. Delete Invoice
 ```bash
@@ -140,10 +146,22 @@ curl -X DELETE "https://kanika-backend-g4yx.onrender.com/invoices/1" \
     "amount": 1500.50,                    # Required (float)
     "status": "pending",                  # Required (e.g., "paid", "pending", "cancelled")
     "description": "Services rendered",   # Optional
+    "payment_method": "Credit Card",      # Optional (defaults to null if not provided)
     "created_at": "2025-10-24T10:00:00Z", # Auto-generated
     "updated_at": "2025-10-24T10:00:00Z"  # Auto-updated
 }
 ```
+
+### Payment Methods
+
+The `payment_method` field accepts any string value. Common examples:
+- `"Credit Card"`
+- `"Debit Card"`
+- `"Bank Transfer"`
+- `"PayPal"`
+- `"Cash"`
+- `"Check"`
+- `null` (when not set)
 
 ## Error Handling
 
@@ -153,5 +171,3 @@ The API includes comprehensive error handling:
 - **500**: Server error
 
 All errors return JSON with a `detail` field explaining the issue.
-
-
