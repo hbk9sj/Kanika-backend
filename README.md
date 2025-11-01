@@ -26,6 +26,7 @@ A FastAPI-based REST API for managing invoices with authentication using Supabas
 |--------|----------|-------------|---------------|
 | GET | `/invoices` | Get all invoices | Yes |
 | GET | `/invoices/single?invoice_id={id}` | Get a single invoice by ID | Yes |
+| GET | `/invoices/stats` | Get invoice statistics | Yes |
 | POST | `/invoices` | Create a new invoice | Yes |
 | PUT | `/invoices/{invoice_id}` | Update an existing invoice | Yes |
 | DELETE | `/invoices/{invoice_id}` | Delete an invoice | Yes |
@@ -135,6 +136,52 @@ curl -X DELETE "https://kanika-backend-g4yx.onrender.com/invoices/1" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
+#### 8. Get Invoice Statistics
+```bash
+curl -X GET "https://kanika-backend-g4yx.onrender.com/invoices/stats" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response Example:**
+```json
+{
+  "total_invoices": 100,
+  "total_amount": 50000.0,
+  "average_amount": 500.0,
+  "by_status": {
+    "pending": {
+      "count": 20,
+      "amount": 10000.0
+    },
+    "paid": {
+      "count": 75,
+      "amount": 38000.0
+    },
+    "cancelled": {
+      "count": 5,
+      "amount": 2000.0
+    }
+  },
+  "payment_methods": {
+    "credit_card": 30,
+    "bank_transfer": 25,
+    "cash": 15,
+    "paypal": 5,
+    "not_set": 25
+  }
+}
+```
+
+**Stats Provided:**
+- **total_invoices**: Total number of invoices in the system
+- **total_amount**: Sum of all invoice amounts
+- **average_amount**: Average invoice amount
+- **by_status**: Breakdown by status (pending, paid, cancelled, etc.)
+  - Each status includes `count` and `amount`
+- **payment_methods**: Distribution of payment methods used
+  - Shows count for each payment method
+  - `not_set` represents invoices without a payment method
+
 ## Invoice Schema
 
 ```python
@@ -171,3 +218,4 @@ The API includes comprehensive error handling:
 - **500**: Server error
 
 All errors return JSON with a `detail` field explaining the issue.
+
