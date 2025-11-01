@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 
 
 # Authentication Schemas
@@ -94,6 +94,8 @@ class InvoiceBase(BaseModel):
     description: Optional[str] = None
     payment_method: Optional[str] = None
     line_items: Optional[List[LineItem]] = None
+    issue_date: Optional[date] = None  # Format: YYYY-MM-DD - Date when invoice was issued
+    due_date: Optional[date] = None  # Format: YYYY-MM-DD - Payment due date
 
 
 class InvoiceCreate(InvoiceBase):
@@ -111,6 +113,8 @@ class InvoiceUpdate(BaseModel):
     description: Optional[str] = None
     payment_method: Optional[str] = None
     line_items: Optional[List[LineItem]] = None
+    issue_date: Optional[date] = None
+    due_date: Optional[date] = None
 
 
 class Invoice(InvoiceBase):
