@@ -5,6 +5,7 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 import os
 from typing import List, Optional
+from datetime import datetime, timedelta
 from schemas import (
     Invoice, InvoiceCreate, InvoiceUpdate, LineItem, InvoiceStats,
     UserSignup, UserLogin, AuthResponse, UserResponse
@@ -252,9 +253,35 @@ async def create_invoice(invoice: InvoiceCreate, current_user = Depends(get_curr
     
     Args:
         invoice: Invoice data
+    
+    Note:
+        - If issue_date is not provided, it will be automatically set to today's date
+        - If due_date is not provided, it will be automatically set to 15 days from issue_date
     """
     try:
         invoice_data = invoice.model_dump()
+        
+        # If issue_date is not provided, set it to today
+        if not invoice_data.get("issue_date"):
+            issue_date = datetime.now().date()
+            invoice_data["issue_date"] = issue_date.isoformat()  # Format as YYYY-MM-DD
+        else:
+            # Convert date object to string format for Supabase
+            if hasattr(invoice_data["issue_date"], "isoformat"):
+                issue_date = invoice_data["issue_date"]
+                invoice_data["issue_date"] = issue_date.isoformat()
+            else:
+                issue_date = datetime.now().date()
+        
+        # If due_date is not provided, set it to 15 days from issue_date
+        if not invoice_data.get("due_date"):
+            due_date = issue_date + timedelta(days=15)
+            invoice_data["due_date"] = due_date.isoformat()  # Format as YYYY-MM-DD
+        else:
+            # Convert date object to string format for Supabase
+            if hasattr(invoice_data["due_date"], "isoformat"):
+                invoice_data["due_date"] = invoice_data["due_date"].isoformat()
+        
         response = supabase.table("invoices").insert(invoice_data).execute()
         
         if not response.data:
@@ -288,6 +315,16 @@ async def update_invoice(invoice_id: int, invoice: InvoiceUpdate, current_user =
         
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
+        
+        # Convert issue_date to string format if present
+        if "issue_date" in update_data and update_data["issue_date"]:
+            if hasattr(update_data["issue_date"], "isoformat"):
+                update_data["issue_date"] = update_data["issue_date"].isoformat()
+        
+        # Convert due_date to string format if present
+        if "due_date" in update_data and update_data["due_date"]:
+            if hasattr(update_data["due_date"], "isoformat"):
+                update_data["due_date"] = update_data["due_date"].isoformat()
         
         # Update the invoice
         response = supabase.table("invoices").update(update_data).eq("id", invoice_id).execute()
